@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Issue Tracker</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Project</p>
+        <h1>Issue Tracker</h1>
+      </div>
+      <form id="project-form" class="project-form">
+        <label for="project-name">Project name</label>
+        <div class="inline-row">
+          <input id="project-name" name="project" value="fcc-project" autocomplete="off">
+          <button type="submit">Load</button>
+        </div>
+      </form>
+    </header>
+
+    <main class="app-shell">
+      <section class="tool-panel">
+        <div class="panel-heading">
+          <h2>Create Issue</h2>
+          <span id="active-project">fcc-project</span>
+        </div>
+        <form id="create-form" class="stack">
+          <label>
+            Title
+            <input name="issue_title" required>
+          </label>
+          <label>
+            Text
+            <textarea name="issue_text" rows="5" required></textarea>
+          </label>
+          <div class="two-column">
+            <label>
+              Created by
+              <input name="created_by" required>
+            </label>
+            <label>
+              Assigned to
+              <input name="assigned_to">
+            </label>
+          </div>
+          <label>
+            Status
+            <input name="status_text">
+          </label>
+          <button type="submit">Create</button>
+        </form>
+      </section>
+
+      <section class="tool-panel">
+        <div class="panel-heading">
+          <h2>Issues</h2>
+          <button id="refresh-button" type="button">Refresh</button>
+        </div>
+
+        <form id="filter-form" class="filter-grid">
+          <label>
+            Open
+            <select name="open">
+              <option value="">Any</option>
+              <option value="true">Open</option>
+              <option value="false">Closed</option>
+            </select>
+          </label>
+          <label>
+            Assigned
+            <input name="assigned_to" placeholder="Exact match">
+          </label>
+          <label>
+            Created by
+            <input name="created_by" placeholder="Exact match">
+          </label>
+          <label>
+            ID
+            <input name="_id" placeholder="Exact match">
+          </label>
+          <button type="submit">Filter</button>
+          <button id="clear-filters" type="button">Clear</button>
+        </form>
+
+        <div id="message" class="message" role="status"></div>
+        <div id="issues" class="issue-list"></div>
+      </section>
+    </main>
+
+    <script src="/client.js"></script>
+  </body>
+</html>

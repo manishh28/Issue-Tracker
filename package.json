@@ -1,0 +1,17 @@
+{
+  "name": "fcc-issue-tracker",
+  "version": "1.0.0",
+  "description": "A full-stack JavaScript issue tracker for the freeCodeCamp Quality Assurance project.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test --test-isolation=none tests/2_functional-tests.js"
+  },
+  "keywords": [
+    "freecodecamp",
+    "issue-tracker",
+    "node"
+  ],
+  "author": "",
+  "license": "MIT"
+}
