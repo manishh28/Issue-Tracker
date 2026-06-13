@@ -8,10 +8,10 @@ chai.use(chaiHttp);
 let testId1;
 let testId2;
 
-describe('Functional Tests', function () {
+suite('Functional Tests', function () {
   this.timeout(10000);
 
-  it('Create an issue with every field', function (done) {
+  test('Create an issue with every field', function (done) {
     chai.request(server)
       .post('/api/issues/testproject')
       .send({
@@ -37,7 +37,7 @@ describe('Functional Tests', function () {
       });
   });
 
-  it('Create an issue with only required fields', function (done) {
+  test('Create an issue with only required fields', function (done) {
     chai.request(server)
       .post('/api/issues/testproject')
       .send({
@@ -57,7 +57,7 @@ describe('Functional Tests', function () {
       });
   });
 
-  it('Create an issue with missing required fields', function (done) {
+  test('Create an issue with missing required fields', function (done) {
     chai.request(server)
       .post('/api/issues/testproject')
       .send({ issue_title: 'Missing Fields Issue' })
@@ -68,7 +68,7 @@ describe('Functional Tests', function () {
       });
   });
 
-  it('View issues on a project', function (done) {
+  test('View issues on a project', function (done) {
     chai.request(server)
       .get('/api/issues/testproject')
       .end(function (err, res) {
@@ -88,7 +88,7 @@ describe('Functional Tests', function () {
       });
   });
 
-  it('View issues on a project with one filter', function (done) {
+  test('View issues on a project with one filter', function (done) {
     chai.request(server)
       .get('/api/issues/testproject')
       .query({ open: true })
@@ -100,7 +100,7 @@ describe('Functional Tests', function () {
       });
   });
 
-  it('View issues on a project with multiple filters', function (done) {
+  test('View issues on a project with multiple filters', function (done) {
     chai.request(server)
       .get('/api/issues/testproject')
       .query({ open: true, created_by: 'Tester' })
@@ -115,7 +115,7 @@ describe('Functional Tests', function () {
       });
   });
 
-  it('Update one field on an issue', function (done) {
+  test('Update one field on an issue', function (done) {
     chai.request(server)
       .put('/api/issues/testproject')
       .send({ _id: testId1, issue_title: 'Updated Title' })
@@ -127,7 +127,7 @@ describe('Functional Tests', function () {
       });
   });
 
-  it('Update multiple fields on an issue', function (done) {
+  test('Update multiple fields on an issue', function (done) {
     chai.request(server)
       .put('/api/issues/testproject')
       .send({ _id: testId1, issue_title: 'Multi Update', issue_text: 'Multi text', open: false })
@@ -139,7 +139,7 @@ describe('Functional Tests', function () {
       });
   });
 
-  it('Update an issue with missing _id', function (done) {
+  test('Update an issue with missing _id', function (done) {
     chai.request(server)
       .put('/api/issues/testproject')
       .send({ issue_title: 'No ID' })
@@ -150,7 +150,7 @@ describe('Functional Tests', function () {
       });
   });
 
-  it('Update an issue with no fields to update', function (done) {
+  test('Update an issue with no fields to update', function (done) {
     chai.request(server)
       .put('/api/issues/testproject')
       .send({ _id: testId1 })
@@ -162,7 +162,7 @@ describe('Functional Tests', function () {
       });
   });
 
-  it('Update an issue with an invalid _id', function (done) {
+  test('Update an issue with an invalid _id', function (done) {
     chai.request(server)
       .put('/api/issues/testproject')
       .send({ _id: 'invalid_id_string', issue_title: 'Test' })
@@ -173,7 +173,7 @@ describe('Functional Tests', function () {
       });
   });
 
-  it('Delete an issue', function (done) {
+  test('Delete an issue', function (done) {
     chai.request(server)
       .delete('/api/issues/testproject')
       .send({ _id: testId2 })
@@ -185,7 +185,7 @@ describe('Functional Tests', function () {
       });
   });
 
-  it('Delete an issue with an invalid _id', function (done) {
+  test('Delete an issue with an invalid _id', function (done) {
     chai.request(server)
       .delete('/api/issues/testproject')
       .send({ _id: 'invalid_id_string' })
@@ -196,7 +196,7 @@ describe('Functional Tests', function () {
       });
   });
 
-  it('Delete an issue with missing _id', function (done) {
+  test('Delete an issue with missing _id', function (done) {
     chai.request(server)
       .delete('/api/issues/testproject')
       .send({})
