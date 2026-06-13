@@ -10,17 +10,18 @@ module.exports = function (app) {
 
   app.route('/_api/get-tests').get(function (req, res) {
     const Mocha = require('mocha');
-    const mocha = new Mocha({ timeout: 10000, reporter: 'min' });
+    const path  = require('path');
 
-    // Clear cached test file so it re-runs fresh each time
-    delete require.cache[require.resolve('../tests/2_functional-tests.js')];
+    const mocha = new Mocha({ timeout: 10000 });
 
-    mocha.addFile('./tests/2_functional-tests.js');
+    // Expose suite/test/before etc. as globals before loading test file
+    mocha.suite.emit('pre-require', global, '', mocha);
+
+    const testFile = path.join(process.cwd(), 'tests', '2_functional-tests.js');
+    delete require.cache[require.resolve(testFile)];
+    mocha.addFile(testFile);
 
     const output = [];
-
-    // Make Mocha globals available
-    const context = mocha.suite.ctx;
 
     mocha.run()
       .on('pass', test => {
