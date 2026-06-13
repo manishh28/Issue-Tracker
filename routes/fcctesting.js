@@ -17,16 +17,25 @@ module.exports = function (app) {
       const path  = require('path');
       const mocha = new Mocha({ timeout: 10000 });
 
+      // Create a root suite to nest tests under
+      const rootSuite = mocha.suite;
+
       global.suite = function (name, fn) {
-        const s = Mocha.Suite.create(mocha.suite, name);
-        s.timeout(10000);
-        fn.call(s);
+        const suite = new Mocha.Suite(name, rootSuite.ctx);
+        suite.timeout(10000);
+        rootSuite.addSuite(suite);
+        // Make test() add to THIS suite
+        global.test = function (tname, tfn) {
+          suite.addTest(new Mocha.Test(tname, tfn));
+        };
+        fn.call(suite);
       };
-      global.test      = function (name, fn) { mocha.suite.addTest(new Mocha.Test(name, fn)); };
-      global.before    = function (fn) { mocha.suite.beforeAll(fn); };
-      global.after     = function (fn) { mocha.suite.afterAll(fn); };
-      global.beforeEach = function (fn) { mocha.suite.beforeEach(fn); };
-      global.afterEach  = function (fn) { mocha.suite.afterEach(fn); };
+
+      global.test     = function (name, fn) { rootSuite.addTest(new Mocha.Test(name, fn)); };
+      global.before   = function (fn) { rootSuite.beforeAll(fn); };
+      global.after    = function (fn) { rootSuite.afterAll(fn); };
+      global.beforeEach = function (fn) { rootSuite.beforeEach(fn); };
+      global.afterEach  = function (fn) { rootSuite.afterEach(fn); };
 
       const testFile = path.join(process.cwd(), 'tests', '2_functional-tests.js');
       delete require.cache[require.resolve(testFile)];
