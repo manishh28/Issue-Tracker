@@ -1,23 +1,18 @@
 'use strict';
 
-function AssertionAnalyser(err) {
-  let message = err.message || err;
+function assertionAnalyser(err) {
+  if (!err) return [];
+
   let assertions = [];
+  let message = err.message || String(err);
 
-  if (!message) return assertions;
-
-  let lines = message.split('\n');
-  lines.forEach(l => {
-    let assertion = {};
-    let match = l.match(/^(\w+):\s(.+)/);
-    if (match) {
-      assertion.method = match[1];
-      assertion.args = match[2].split(', ');
-      assertions.push(assertion);
-    }
+  // Each chai assertion failure becomes one entry
+  assertions.push({
+    method: 'assert',
+    args: [message]
   });
 
   return assertions;
 }
 
-module.exports = AssertionAnalyser;
+module.exports = assertionAnalyser;
