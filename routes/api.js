@@ -1,127 +1,252 @@
 'use strict';
 
-const mongoose = require('mongoose');
+const crypto = require('node:crypto');
 
-const issueSchema = new mongoose.Schema({
-  project:      { type: String, required: true },
-  issue_title:  { type: String, required: true },
-  issue_text:   { type: String, required: true },
-  created_by:   { type: String, required: true },
-  assigned_to:  { type: String, default: '' },
-  status_text:  { type: String, default: '' },
-  open:         { type: Boolean, default: true },
-  created_on:   { type: Date, default: Date.now },
-  updated_on:   { type: Date, default: Date.now }
-});
+const projects = new Map();
+const REQUIRED_FIELDS = ['issue_title', 'issue_text', 'created_by'];
+const UPDATE_FIELDS = ['issue_title', 'issue_text', 'created_by', 'assigned_to', 'status_text', 'open'];
 
-const Issue = mongoose.model('Issue', issueSchema);
+function sendJson(res, data, statusCode = 200) {
+  const body = JSON.stringify(data);
+  res.writeHead(statusCode, {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Content-Type': 'application/json; charset=utf-8',
+    'Content-Length': Buffer.byteLength(body),
+    'X-Content-Type-Options': 'nosniff'
+  });
+  res.end(body);
+}
 
-module.exports = function (app) {
+function getProjectName(url) {
+  return decodeURIComponent(url.pathname.replace(/^\/api\/issues\/?/, '')).trim();
+}
 
-  app.route('/api/issues/:project')
+function getProjectIssues(projectName) {
+  if (!projects.has(projectName)) {
+    projects.set(projectName, []);
+  }
 
-    .get(async function (req, res) {
-      const project = req.params.project;
-      const filter = { project };
-      const allowed = ['issue_title', 'issue_text', 'created_by', 'assigned_to', 'status_text', 'open', '_id'];
-      allowed.forEach(field => {
-        if (req.query[field] !== undefined) {
-          if (field === 'open') {
-            filter.open = req.query.open === 'true';
-          } else if (field === '_id') {
-            if (mongoose.Types.ObjectId.isValid(req.query._id)) {
-              filter._id = req.query._id;
-            }
-          } else {
-            filter[field] = req.query[field];
-          }
-        }
-      });
-      try {
-        const issues = await Issue.find(filter).select('-project -__v');
-        res.json(issues);
-      } catch (err) {
-        res.json({ error: 'could not get issues' });
-      }
-    })
+  return projects.get(projectName);
+}
 
-    .post(async function (req, res) {
-      const project = req.params.project;
-      const { issue_title, issue_text, created_by, assigned_to, status_text } = req.body;
-      if (!issue_title || !issue_text || !created_by) {
-        return res.json({ error: 'required field(s) missing' });
-      }
-      try {
-        const issue = new Issue({
-          project,
-          issue_title,
-          issue_text,
-          created_by,
-          assigned_to:  assigned_to  || '',
-          status_text:  status_text  || '',
-          open:         true,
-          created_on:   new Date(),
-          updated_on:   new Date()
-        });
-        const saved = await issue.save();
-        res.json({
-          _id:          saved._id,
-          issue_title:  saved.issue_title,
-          issue_text:   saved.issue_text,
-          created_by:   saved.created_by,
-          assigned_to:  saved.assigned_to,
-          status_text:  saved.status_text,
-          open:         saved.open,
-          created_on:   saved.created_on,
-          updated_on:   saved.updated_on
-        });
-      } catch (err) {
-        res.json({ error: 'could not create issue' });
-      }
-    })
+function createId() {
+  if (typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
 
-    .put(async function (req, res) {
-      const { _id, issue_title, issue_text, created_by, assigned_to, status_text, open } = req.body;
-      if (!_id) {
-        return res.json({ error: 'missing _id' });
-      }
-      const updates = {};
-      if (issue_title !== undefined && issue_title !== '') updates.issue_title = issue_title;
-      if (issue_text  !== undefined && issue_text  !== '') updates.issue_text  = issue_text;
-      if (created_by  !== undefined && created_by  !== '') updates.created_by  = created_by;
-      if (assigned_to !== undefined && assigned_to !== '') updates.assigned_to = assigned_to;
-      if (status_text !== undefined && status_text !== '') updates.status_text = status_text;
-      if (open        !== undefined && open        !== '') updates.open        = open === 'true' || open === true;
-      if (Object.keys(updates).length === 0) {
-        return res.json({ error: 'no update field(s) sent', _id });
-      }
-      if (!mongoose.Types.ObjectId.isValid(_id)) {
-        return res.json({ error: 'could not update', _id });
-      }
-      updates.updated_on = new Date();
-      try {
-        const updated = await Issue.findByIdAndUpdate(_id, { $set: updates }, { new: true });
-        if (!updated) return res.json({ error: 'could not update', _id });
-        res.json({ result: 'successfully updated', _id });
-      } catch (err) {
-        res.json({ error: 'could not update', _id });
-      }
-    })
+  return crypto.randomBytes(12).toString('hex');
+}
 
-    .delete(async function (req, res) {
-      const { _id } = req.body;
-      if (!_id) {
-        return res.json({ error: 'missing _id' });
-      }
-      if (!mongoose.Types.ObjectId.isValid(_id)) {
-        return res.json({ error: 'could not delete', _id });
-      }
-      try {
-        const deleted = await Issue.findByIdAndDelete(_id);
-        if (!deleted) return res.json({ error: 'could not delete', _id });
-        res.json({ result: 'successfully deleted', _id });
-      } catch (err) {
-        res.json({ error: 'could not delete', _id });
+function hasValue(value) {
+  return value !== undefined && value !== null && String(value).trim() !== '';
+}
+
+function hasOwn(object, key) {
+  return Object.prototype.hasOwnProperty.call(object, key);
+}
+
+function normalizeOpen(value) {
+  if (typeof value === 'boolean') return value;
+  if (String(value).toLowerCase() === 'false') return false;
+  return true;
+}
+
+function serializeIssue(issue) {
+  return {
+    assigned_to: issue.assigned_to,
+    status_text: issue.status_text,
+    open: issue.open,
+    _id: issue._id,
+    issue_title: issue.issue_title,
+    issue_text: issue.issue_text,
+    created_by: issue.created_by,
+    created_on: issue.created_on,
+    updated_on: issue.updated_on
+  };
+}
+
+function parseUrlEncodedBody(rawBody) {
+  const params = new URLSearchParams(rawBody);
+  const body = {};
+
+  for (const [key, value] of params) {
+    body[key] = value;
+  }
+
+  return body;
+}
+
+function parseJsonBody(rawBody) {
+  if (!rawBody.trim()) return {};
+
+  try {
+    const parsed = JSON.parse(rawBody);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function collectBody(req) {
+  return new Promise((resolve, reject) => {
+    let body = '';
+
+    req.setEncoding('utf8');
+    req.on('data', (chunk) => {
+      body += chunk;
+      if (body.length > 1_000_000) {
+        reject(new Error('Request body too large'));
+        req.destroy();
       }
     });
+    req.on('end', () => {
+      const contentType = req.headers['content-type'] || '';
+      resolve(contentType.includes('application/json') ? parseJsonBody(body) : parseUrlEncodedBody(body));
+    });
+    req.on('error', reject);
+  });
+}
+
+function matchesFilter(issue, key, value) {
+  if (key === 'open') {
+    return issue.open === normalizeOpen(value);
+  }
+
+  return String(issue[key] ?? '') === value;
+}
+
+async function createIssue(req, res, projectName) {
+  const body = await collectBody(req);
+  const missingRequiredField = REQUIRED_FIELDS.some((field) => !hasValue(body[field]));
+
+  if (missingRequiredField) {
+    sendJson(res, { error: 'required field(s) missing' });
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const issue = {
+    assigned_to: hasValue(body.assigned_to) ? String(body.assigned_to) : '',
+    status_text: hasValue(body.status_text) ? String(body.status_text) : '',
+    open: true,
+    _id: createId(),
+    issue_title: String(body.issue_title),
+    issue_text: String(body.issue_text),
+    created_by: String(body.created_by),
+    created_on: now,
+    updated_on: now
+  };
+
+  getProjectIssues(projectName).push(issue);
+  sendJson(res, serializeIssue(issue));
+}
+
+function listIssues(res, url, projectName) {
+  const filters = Array.from(url.searchParams.entries());
+  const issues = getProjectIssues(projectName)
+    .filter((issue) => filters.every(([key, value]) => matchesFilter(issue, key, value)))
+    .map(serializeIssue);
+
+  sendJson(res, issues);
+}
+
+async function updateIssue(req, res, projectName) {
+  const body = await collectBody(req);
+  const id = body._id;
+
+  if (!hasValue(id)) {
+    sendJson(res, { error: 'missing _id' });
+    return;
+  }
+
+  const fieldsToUpdate = UPDATE_FIELDS.filter((field) => hasOwn(body, field));
+  if (fieldsToUpdate.length === 0) {
+    sendJson(res, { error: 'no update field(s) sent', _id: String(id) });
+    return;
+  }
+
+  const issue = getProjectIssues(projectName).find((candidate) => candidate._id === String(id));
+  if (!issue) {
+    sendJson(res, { error: 'could not update', _id: String(id) });
+    return;
+  }
+
+  for (const field of fieldsToUpdate) {
+    issue[field] = field === 'open' ? normalizeOpen(body[field]) : String(body[field] ?? '');
+  }
+  issue.updated_on = new Date().toISOString();
+
+  sendJson(res, { result: 'successfully updated', _id: String(id) });
+}
+
+async function deleteIssue(req, res, projectName) {
+  const body = await collectBody(req);
+  const id = body._id;
+
+  if (!hasValue(id)) {
+    sendJson(res, { error: 'missing _id' });
+    return;
+  }
+
+  const issues = getProjectIssues(projectName);
+  const issueIndex = issues.findIndex((issue) => issue._id === String(id));
+
+  if (issueIndex === -1) {
+    sendJson(res, { error: 'could not delete', _id: String(id) });
+    return;
+  }
+
+  issues.splice(issueIndex, 1);
+  sendJson(res, { result: 'successfully deleted', _id: String(id) });
+}
+
+async function handleApiRequest(req, res, url) {
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type'
+    });
+    res.end();
+    return;
+  }
+
+  const projectName = getProjectName(url);
+  if (!projectName) {
+    sendJson(res, { error: 'project name missing' }, 404);
+    return;
+  }
+
+  if (req.method === 'POST') {
+    await createIssue(req, res, projectName);
+    return;
+  }
+
+  if (req.method === 'GET') {
+    listIssues(res, url, projectName);
+    return;
+  }
+
+  if (req.method === 'PUT') {
+    await updateIssue(req, res, projectName);
+    return;
+  }
+
+  if (req.method === 'DELETE') {
+    await deleteIssue(req, res, projectName);
+    return;
+  }
+
+  sendJson(res, { error: 'method not allowed' }, 405);
+}
+
+function resetStore() {
+  projects.clear();
+}
+
+module.exports = {
+  handleApiRequest,
+  resetStore
 };
